@@ -1,6 +1,6 @@
 # ai-team-plugins
 
-Private Claude Code marketplace for the company AI teams. One repo, several plugins, one CI.
+Public Claude Code marketplace for the company AI teams. One repo, several plugins, one CI.
 
 | Plugin | What it holds | Used by |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ Paths are relative to the company project root. Scripts find the file by walking
 ## Install in a company project
 
 ```bash
-claude plugin marketplace add bhurivaj/ai-team-plugins          # private: needs git access (gh auth setup-git)
+claude plugin marketplace add bhurivaj/ai-team-plugins          # public: no git credentials needed
 claude plugin install platform-core@ai-team-plugins  --scope project
 claude plugin install marketing-core@ai-team-plugins --scope project
 ln -sfn ~/.claude/plugins/marketplaces/ai-team-plugins/plugins/platform-core/scripts .claude/scripts

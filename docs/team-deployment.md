@@ -6,7 +6,7 @@ How the AI team setup reaches other people in the company. **Status: proposal.**
 
 | Piece | Where it lives today | Shared how |
 | --- | --- | --- |
-| Plugins (agents, skills, scripts, workflows) | `ai-team-plugins` (private GitHub) | Claude Code marketplace — done |
+| Plugins (agents, skills, scripts, workflows) | `ai-team-plugins` (public GitHub) | Claude Code marketplace — done |
 | Company project: `CLAUDE.md`, `company.json`, `docs/`, `.claude/rules`, project skills and workflows | local folders only (**not git repos**) | needs a private repo per company project — **decision 1** |
 | Credentials | each project's `.secret/` on one machine | never shared — each person gets their own (below) |
 | Symlinks (`.claude/scripts`, shared workflows) | absolute paths on one machine | created per machine by a setup script |
@@ -27,7 +27,7 @@ How the AI team setup reaches other people in the company. **Status: proposal.**
      }
    }
    ```
-   Private repo access uses the teammate's own git credentials (SSH key, or `gh auth login && gh auth setup-git`). No token goes in any file. There is no version pinning in this setting. `autoUpdate` follows the default branch, so protect `main` and merge through PRs once more people depend on it.
+   The plugins repo is public, so no git credentials are needed for it. There is no version pinning in this setting. `autoUpdate` follows the default branch, so protect `main` and merge through PRs once more people depend on it.
 3. **`setup` script** (to build, in this repo). Run once per machine, per project:
    - Check prerequisites: `claude`, `git`, `gh` auth, `python3`, `uv`, `node`.
    - Create the symlinks into `~/.claude/plugins/marketplaces/ai-team-plugins/…`, which is a stable path across updates.
