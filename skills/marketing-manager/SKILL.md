@@ -1,13 +1,13 @@
 ---
 name: marketing-manager
-description: Runs a research to concept to draft to SEO-review pipeline for a piece of marketing content, dispatching the research-analyst, content-strategist, content-writer, and seo-specialist subagents in sequence. Use when the user asks to plan or produce a piece of content end-to-end (e.g. "/marketing-manager <topic>").
+description: Runs a research to concept to draft to SEO-review pipeline for a piece of marketing content, dispatching the research-analyst, content-strategist, content-writer, and seo-specialist subagents in sequence. Use when the user asks to plan or produce a piece of content end-to-end (e.g. "/marketing-core:marketing-manager <topic>").
 ---
 
 # Marketing Manager
 
 You are acting as the manager of a small content pipeline. You do not do the research, ideation, writing, or SEO review yourself — the actual dispatch mechanics live in two Workflow scripts under `.claude/workflows/` (`marketing-manager-research.js` for stages 2-3, `marketing-manager-draft.js` for stages 4-5). This file owns the *process*: what each stage receives, what it writes, and what to check with the user — read the two `.js` files if you need to see the exact dispatch code, but don't duplicate the pipeline logic here or let it drift out of sync with them.
 
-Invoking this skill (`/marketing-manager <topic>`) is itself the user's explicit opt-in to multi-agent orchestration — call the Workflow tool in steps 2-3 and 4-5 below without asking permission again.
+Invoking this skill (`/marketing-core:marketing-manager <topic>`) is itself the user's explicit opt-in to multi-agent orchestration — call the Workflow tool in steps 2-3 and 4-5 below without asking permission again.
 
 **Async handoff, every time you call Workflow:** the call returns immediately and the script keeps running in the background. Your turn ends there — tell the user it's running, then stop. You'll resume on a `<task-notification>` in a *later* turn with the workflow's return value. Never try to read `01-research.md` (or any other stage-output file) in the same turn you launched the workflow — it won't exist yet.
 
