@@ -1,0 +1,17 @@
+services:
+  teams-bot:
+    build:
+      context: ../..
+      dockerfile: deploy/teams-bot/Dockerfile
+    restart: unless-stopped
+    env_file: .env                     # chmod 600; never committed
+    ports:
+      - "127.0.0.1:3978:3978"          # reachable only through nginx on this host
+    volumes:
+      - ./companies:/workspace/companies:ro   # company project folders WITHOUT .secret/
+      - bot-data:/data                         # sessions.json, usage.jsonl, Claude session files
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3978/healthz')"]
+      interval: 30s
+volumes:
+  bot-data:

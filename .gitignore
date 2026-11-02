@@ -6,3 +6,7 @@ __pycache__/
 company.json
 client.json
 *.local.json
+
+# deploy secrets and company data mounted into the bot
+.env
+deploy/teams-bot/companies/

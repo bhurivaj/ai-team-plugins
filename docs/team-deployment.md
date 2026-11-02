@@ -67,9 +67,52 @@ People who won't run a terminal still need a way in. These are the candidates. C
 
 Recommended order: Phase 1 for the people who run the work now. Pick a Phase 2 front-end only after Phase 1 has run for a while, so it wraps a workflow that already works.
 
+### Decided 2026-11-02: Teams bot, self-hosted
+
+- **Channel:** Microsoft Teams. The company is internal-only on Microsoft 365.
+- **Hosting:** the company's own Ubuntu server, not Azure. Requests flow Teams → Cloudflare (proxied DNS) → existing nginx → the bot container (Docker Compose).
+
+```text
+Teams user ─► Microsoft Teams / bot registration (free)
+                 │ HTTPS POST /api/messages (JWT signed by Bot Framework)
+            Cloudflare (proxied DNS, TLS)
+                 │
+            nginx on Ubuntu  ── proxy_pass ──►  bot container (127.0.0.1 only)
+                                                 ├── Teams adapter (Bot Framework SDK)
+                                                 ├── Claude Agent SDK + ai-team-plugins
+                                                 ├── volumes: company repos, per-conversation workspaces, logs
+                                                 └── secrets: Docker secrets / root-only env file (never in git or the image)
+```
+
+#### Admin checklist (owner, one-time)
+
+1. **Entra ID app registration**, single-tenant. Gives the bot's app ID and a client secret. Add Graph delegated permissions later, for SharePoint-as-the-user.
+2. **Bot registration in the Teams Developer Portal** (Tools → Bot management). No Azure subscription is needed. Set the messaging endpoint to `https://<bot-host>/api/messages`.
+3. **Teams app package.** Upload as a custom app for the organisation in the Teams Admin Center and restrict it to a security group, e.g. `AI-Marketing-Users`. A second group, `AI-Marketing-Publishers`, gates publishing.
+4. **Anthropic Console.** Create a dedicated workspace and API key for the bot, with a monthly spend limit. Start around $50 for Phase 0.
+5. **Cloudflare:**
+   - Add a proxied DNS record for the bot host.
+   - Set SSL mode to Full (strict), with an origin certificate on nginx.
+   - **Bot Fight Mode (classic) blocks Microsoft's calls and cannot be skipped by a WAF rule.** Either turn it off for the zone, or use Super Bot Fight Mode with a skip rule for `/api/messages`.
+   - Bot Framework's JWT is validated in the app, so the endpoint stays authenticated without IP allow-listing.
+6. **nginx.**
+   - Add a server block that proxies `/api/messages` to `127.0.0.1:<port>`.
+   - Raise `client_max_body_size` for photo attachments.
+   - Keep `proxy_read_timeout` modest, because the bot must answer Teams within seconds and send long results afterwards as proactive messages.
+7. **Server.**
+   - Docker Engine + Compose plugin.
+   - A non-root deploy user.
+   - Secrets readable by root/the container only.
+   - Outbound internet to Anthropic, Microsoft Graph, Flowtone, Meta and both WordPress sites.
+
+#### Phase 0 scope
+
+- **Build:** a read-only bot that answers from the company docs and playbook in one channel, for the owner only.
+- **Prove:** the Agent SDK loads the plugins inside the container; conversation state maps to Teams threads; replies arrive asynchronously; costs are logged per user.
+- **Out of scope:** publishing, uploads and Flowtone writes.
+
 ## Decisions needed
 
-1. Make each company project a private repo? Under which account or org, and with what names?
+1. Make each company project a private repo? Under which account or org, and with what names? The bot container needs these repos too.
 2. Who will use this first, and which of them should be able to publish?
-3. Azure: issue per-company SAS tokens now, or keep the account key on the owner's machine only until teammates join?
-4. Phase 2: which channel (Teams, Slack, web) does the team actually use day to day?
+3. Azure storage: issue per-company SAS tokens now, or keep the account key on the owner's machine only until teammates join?
