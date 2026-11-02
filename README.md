@@ -7,7 +7,7 @@ marketplace).
 
 | Folder | How a client project gets it | Edits take effect |
 | --- | --- | --- |
-| `agents/`, `skills/` | plugin, namespaced `marketing-core:<name>` | after `version` bump + `claude plugin marketplace update marketing-team-local` + `claude plugin update marketing-core@marketing-team-local` in each project, then a new session (loaded from a cache copy) |
+| `agents/`, `skills/` | plugin, namespaced `marketing-core:<name>` | after `version` bump + `claude plugin marketplace update marketing-team-local` + `claude plugin update marketing-core@marketing-team-local --scope project` in each project, then a new session (loaded from a cache copy) |
 | `scripts/` | `.claude/scripts` symlink | immediately |
 | `workflows/` | per-file symlink into `.claude/workflows/` | immediately |
 
