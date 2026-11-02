@@ -20,13 +20,13 @@ Only for content already approved (Flowtone item or exact text). Authored copy i
 
 ## SEO plugin (`client.json` → `wordpress.seo_plugin`)
 - **yoast:** `meta._yoast_wpseo_title`, `_yoast_wpseo_metadesc`, `_yoast_wpseo_focuskw` (REST-writable on `post`; check `OPTIONS` for other types). og:image comes from `featured_media`. Yoast's stored og:image is **one save behind**: POST twice, then purge cache, then verify `yoast_head_json.og_image`.
-- **aioseo:** write SEO fields through AIOSEO's own endpoint as documented in the project's CLAUDE.md/memory; verify by reading them back.
+- **aioseo:** write title/description via `POST aioseo/v1/post` (AIOSEO v5 ignores `_aioseo_*` meta); the client's playbook (`client.json` → `playbook_doc`) has the exact write path and free-tier limits. Verify by reading them back and checking the rendered page.
 - Meta description 120–160 characters, includes the primary keyword.
 
 ## Featured image
 `featured_media` must be an attachment ID: upload the one cover with `.claude/scripts/wp_media_upload.py <file> --alt "<alt>"`, set `featured_media`, then (Yoast) save again.
 
 ## After every write
-1. Purge the host cache if the project uses one (Catice: `PUT siteground-optimizer/v1/purge-cache`).
+1. Purge the host cache: `wp_rest.py PUT siteground-optimizer/v1/purge-cache` (PUT, not POST — both current clients are on SiteGround).
 2. Re-fetch the post (`?context=edit`) and the public URL: title has no SEO suffix, body text appears once, og:image is right, slug is what you set.
 3. Report the post ID, URL, and what you verified. Deletes: `wp_delete_post.py <id>` trashes by default; `--force` is permanent — only when explicitly asked.
