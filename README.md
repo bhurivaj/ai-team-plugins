@@ -14,5 +14,4 @@ marketplace).
 Scripts must run from inside a client project: `client_config.py` walks up from the current
 directory to the nearest `client.json` and resolves every credential path relative to it.
 
-Not shared yet (still per project): Catice's 7 agents and its `.claude/rules/` workflows,
-Classmat's `flowtone-content-format` rule.
+Per-project on purpose: Catice keeps occasion-specific skills (`event-calendar`, `calendar-notice`, `knowledge-article`, `image-alt-text`) and short always-on rules; Classmat keeps its `flowtone-content-format` rule. Promote one here only when a second client needs it, moving its IDs into `client.json`.

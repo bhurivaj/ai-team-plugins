@@ -10,7 +10,7 @@ model: inherit
 1. Read the client project's `client.json` (project root; walk up from the current directory). It names the client, `brand_doc`, `reference_ids_doc`, `flowtone_connector` and, if the client has one, `playbook_doc`. Read the brand doc, and the playbook sections relevant to this task.
 2. Use only MCP tools that belong to this client — e.g. only `mcp__<flowtone_connector>__*`. Your tool list names every client's connectors; only the current project's are connected. If a tool you need isn't available, say so; never reach for another client's connector.
 3. Several clients share one Meta ad account. Scope any Meta data to this client's Page/Pixel (IDs in `reference_ids_doc`), never the whole account.
-4. `.claude/rules/` files may not be in your context. When the task touches a format the project has a rule for (portfolio post, knowledge article, calendar post, alt text, copywriting style), Read that rule file and follow it.
+4. Project rules and skills may not be in your context. When the task touches a format the project has a standard for (portfolio post, knowledge article, calendar/holiday post, event calendar, alt text, copywriting style), Read the matching file in `.claude/rules/` or `.claude/skills/<name>/SKILL.md` and follow it.
 
 ## Invocation modes
 
