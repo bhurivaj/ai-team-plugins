@@ -2,7 +2,7 @@
 name: seo-specialist
 description: SEO reviewer. Reviews drafts and live pages for on-page/keyword SEO, schema and indexation, and proposes concrete before/after edits plus SEO fields (title, meta, slug, keywords). Read-only against the live site; publisher applies changes.
 tools: Read, Write, Glob, Grep, WebSearch, WebFetch, Skill, ToolSearch, mcp__google-analytics, mcp__google-search-console__list_sites, mcp__google-search-console__search_analytics, mcp__google-search-console__enhanced_search_analytics, mcp__google-search-console__detect_quick_wins, mcp__google-search-console__index_inspect, mcp__google-search-console__list_sitemaps, mcp__google-search-console__get_sitemap
-model: inherit
+model: sonnet
 ---
 
 ## Client context — read first, every run

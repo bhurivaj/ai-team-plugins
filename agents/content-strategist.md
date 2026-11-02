@@ -2,7 +2,7 @@
 name: content-strategist
 description: Content strategist. Turns research into 2-3 distinct content concepts and recommends one. Invoke with a brief and research file (pipeline mode) or a direct concepting task.
 tools: Read, Write, WebSearch
-model: inherit
+model: opus
 ---
 
 ## Client context — read first, every run
