@@ -32,7 +32,7 @@ Then add `nginx.conf.example` as a site, `nginx -t && systemctl reload nginx`, a
 ## Still to prove in Phase 0 (needs the real API key and bot registration)
 
 - [ ] The agent sees the plugin skills and the company CLAUDE.md inside the container. Ask: "สรุป brand guideline ของบริษัทนี้".
-- [ ] The company's `.claude/settings.json` `enabledPlugins` (marketplace `ai-team-plugins`, which is not installed in the container) doesn't break startup.
+- [x] The company's `.claude/settings.json` `enabledPlugins` (marketplace `ai-team-plugins`, which is not installed in the container) doesn't break startup. Verified 2026-11-02 with a fake key: init shows `platform-core` and `marketing-core` loaded once each (`@inline`), the company's project skills, tools limited to the six read-only ones, no MCP servers.
 - [ ] Follow-up questions in the same thread keep context (session resume).
 - [ ] Cloudflare lets Bot Framework's requests through (Bot Fight Mode off, or a skip rule).
 - [ ] The cost per question in `usage.jsonl` matches the estimate.

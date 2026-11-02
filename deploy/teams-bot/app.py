@@ -6,7 +6,7 @@ import time
 from os import environ
 
 from aiohttp import web
-from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
+from claude_agent_sdk import ClaudeAgentOptions, ResultError, ResultMessage, query
 from microsoft_agents.activity import load_configuration_from_env
 from microsoft_agents.authentication.msal import MsalConnectionManager
 from microsoft_agents.hosting.aiohttp import CloudAdapter, jwt_authorization_middleware, start_agent_process
@@ -27,6 +27,7 @@ MAX_BUDGET_USD = float(environ.get("MAX_BUDGET_USD", "0.50"))
 READ_ONLY_TOOLS = ["Read", "Glob", "Grep", "Skill", "WebSearch", "WebFetch"]
 BLOCKED_TOOLS = ["Bash", "Write", "Edit", "NotebookEdit", "Agent", "Workflow"]
 
+background_tasks = set()  # asyncio keeps only weak refs to tasks; hold them until done
 sessions = bl.SessionStore(os.path.join(DATA_DIR, "sessions.json"))
 config = load_configuration_from_env(environ)
 storage = MemoryStorage()
@@ -41,6 +42,7 @@ def agent_options(company, session_id):
         cwd=os.path.join(COMPANIES_DIR, company),
         setting_sources=["project"],  # company CLAUDE.md, rules, project skills
         plugins=[{"type": "local", "path": os.path.join(PLUGINS_DIR, p)} for p in ("platform-core", "marketing-core")],
+        tools=READ_ONLY_TOOLS,  # the only tools the model sees (without it, Cron/Worktree/SendMessage etc. load too)
         allowed_tools=READ_ONLY_TOOLS,
         disallowed_tools=BLOCKED_TOOLS,
         permission_mode="dontAsk",  # anything not allowed is silently denied — no one to answer a prompt
@@ -56,9 +58,13 @@ def agent_options(company, session_id):
 async def run_agent(prompt, company, conversation_id, user):
     started = time.time()
     result = None
-    async for message in query(prompt=prompt, options=agent_options(company, sessions.get(conversation_id))):
-        if isinstance(message, ResultMessage):
-            result = message
+    try:
+        async for message in query(prompt=prompt, options=agent_options(company, sessions.get(conversation_id))):
+            if isinstance(message, ResultMessage):
+                result = message
+    except ResultError:  # the SDK yields the error ResultMessage, then raises; keep it so the cost is logged
+        if result is None:
+            raise
     if result is None:
         return "ขออภัย ไม่ได้รับคำตอบจากระบบ"
     sessions.set(conversation_id, result.session_id)
@@ -100,7 +106,9 @@ async def on_message(context: TurnContext, state: TurnState) -> None:
         await adapter.continue_conversation_with_claims(identity, reference.get_continuation_activity(), send)
 
     # Teams expects the HTTP call answered within seconds; the real reply goes out proactively.
-    asyncio.create_task(work())
+    task = asyncio.create_task(work())
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)
 
 
 async def messages(request: web.Request) -> web.Response:
