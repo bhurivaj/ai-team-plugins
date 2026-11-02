@@ -111,6 +111,12 @@ Teams user ─► Microsoft Teams / bot registration (free)
 - **Prove:** the Agent SDK loads the plugins inside the container; conversation state maps to Teams threads; replies arrive asynchronously; costs are logged per user.
 - **Out of scope:** publishing, uploads and Flowtone writes.
 
+#### Decided 2026-11-02: the bot pins its plugins
+
+- The bot keeps the plugins baked into its image at build time, so a push to `main` never changes the bot's behaviour until someone rebuilds it. This holds at least through Phase 0.
+- The repo being public would let the bot install from the marketplace instead (company `enabledPlugins`), but that follows `main` with no version pin. Switch only after `main` is protected and changes merge through PRs.
+- Proposed for later, not built: an admin UI for editing context and skills, with every save stored as a git commit. The tool allowlist stays in code, where changes go through tests and review.
+
 ## Decisions needed
 
 1. Make each company project a private repo? Under which account or org, and with what names? The bot container needs these repos too.
