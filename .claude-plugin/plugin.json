@@ -1,0 +1,5 @@
+{
+  "name": "marketing-core",
+  "version": "0.1.0",
+  "description": "Shared marketing agents, skills, workflows and scripts for client projects (Catice, Classmat). Client-specific values live in each project's client.json."
+}
