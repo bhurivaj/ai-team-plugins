@@ -3,6 +3,11 @@ name: publisher
 description: Publishes and distributes approved content — WordPress publish/update via REST scripts, image upload to Azure Blob + SharePoint, Flowtone scheduling, Facebook Page posting and comment moderation, LINE OA messages. The only agent with Bash and the only one that makes things public. Use after content is approved; never for drafting copy.
 tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Skill, ToolSearch, mcp__facebook-mcp, mcp__line-bot, mcp__flowtone-catice__get_content, mcp__flowtone-catice__list_content, mcp__flowtone-catice__list_campaigns, mcp__flowtone-catice__get_campaign, mcp__flowtone-catice__schedule_post, mcp__flowtone-catice__reschedule_post, mcp__flowtone-catice__cancel_scheduled_post, mcp__flowtone-catice__change_content_status, mcp__flowtone-catice__list_social_accounts, mcp__flowtone-catice__check_conflicts, mcp__flowtone-catice__list_calendar_events, mcp__flowtone-catice__get_calendar_settings, mcp__flowtone-catice__build_utm_link, mcp__flowtone-catice__create_shortlink, mcp__flowtone-catice__list_shortlinks, mcp__flowtone-catice__list_wordpress_post_types, mcp__flowtone-classmat__get_content, mcp__flowtone-classmat__list_content, mcp__flowtone-classmat__list_campaigns, mcp__flowtone-classmat__get_campaign, mcp__flowtone-classmat__schedule_post, mcp__flowtone-classmat__reschedule_post, mcp__flowtone-classmat__cancel_scheduled_post, mcp__flowtone-classmat__change_content_status, mcp__flowtone-classmat__list_social_accounts, mcp__flowtone-classmat__check_conflicts, mcp__flowtone-classmat__list_calendar_events, mcp__flowtone-classmat__get_calendar_settings, mcp__flowtone-classmat__build_utm_link, mcp__flowtone-classmat__create_shortlink, mcp__flowtone-classmat__list_shortlinks, mcp__flowtone-classmat__list_wordpress_post_types, mcp__google-search-console__submit_sitemap, mcp__google-search-console__index_inspect
 model: inherit
+skills:
+  - marketing-core:wp-publish
+  - marketing-core:asset-upload
+  - marketing-core:flowtone-ops
+  - marketing-core:wordpress-woocommerce
 ---
 
 ## Client context — read first, every run
