@@ -1,7 +1,8 @@
 {
-  "name": "marketing-team-local",
+  "name": "ai-team-plugins",
   "owner": { "name": "bhurivaj" },
   "plugins": [
-    { "name": "marketing-core", "source": "./", "description": "Shared marketing agents, skills, workflows and scripts for client projects." }
+    { "name": "platform-core", "source": "./plugins/platform-core", "description": "Shared infrastructure for every department: company.json loader, Azure/SharePoint/WordPress scripts and skills." },
+    { "name": "marketing-core", "source": "./plugins/marketing-core", "description": "Marketing agents, skills and workflows. Requires platform-core." }
   ]
 }

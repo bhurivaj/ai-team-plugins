@@ -1,17 +1,50 @@
-# marketing-core
+# ai-team-plugins
 
-Shared core for the client marketing projects (Catice, Classmat). Client-specific values
-live in each project's `client.json`, never in this repo. Installed in each client project as
-the project-scope plugin `marketing-core@marketing-team-local` (this folder is also the local
-marketplace).
+Private Claude Code marketplace for the company AI teams. One repo, several plugins, one CI.
 
-| Folder | How a client project gets it | Edits take effect |
+| Plugin | What it holds | Used by |
 | --- | --- | --- |
-| `agents/`, `skills/` | plugin, namespaced `marketing-core:<name>` | after `version` bump + `claude plugin marketplace update marketing-team-local` + `claude plugin update marketing-core@marketing-team-local --scope project` in each project, then a new session (loaded from a cache copy) |
-| `scripts/` | `.claude/scripts` symlink | immediately |
-| `workflows/` | per-file symlink into `.claude/workflows/` | immediately |
+| `platform-core` | `company.json` loader and the Azure Blob / SharePoint / WordPress scripts; skills `asset-upload`, `msgraph`, `wordpress-woocommerce`; `docs/model-selection.md` | every department |
+| `marketing-core` | 6 marketing agents, marketing skills (`brand-voice`, `flowtone-ops`, `wp-publish`, `campaign-plan`, …), the `marketing-manager` workflows. Declares `dependencies: ["platform-core"]` | marketing projects (Catice, Classmat) |
+| `accounting-core`, `projects-core` | not created yet — add under `plugins/` when that work starts (accounting will plug into the existing `ai_team/odoo_team`) | |
 
-Scripts must run from inside a client project: `client_config.py` walks up from the current
-directory to the nearest `client.json` and resolves every credential path relative to it.
+Plugin agents and skills are namespaced `<plugin>:<name>` (e.g. `marketing-core:publisher`, `platform-core:asset-upload`).
 
-Per-project on purpose: Catice keeps occasion-specific skills (`event-calendar`, `calendar-notice`, `knowledge-article`, `image-alt-text`) and short always-on rules; Classmat keeps its `flowtone-content-format` rule. Promote one here only when a second client needs it, moving its IDs into `client.json`.
+## company.json (lives in each company project, never in this repo)
+
+One file per company project. Top level is company-wide; each department adds its own section.
+
+```jsonc
+{
+  "company": "catice", "prefix": "ci",            // prefix scopes Azure containers (ci-images, …)
+  "name_th": "…", "name_en": "…", "domain": "catice.co",
+  "reference_ids_doc": "docs/reference-ids.md",
+  "wordpress":  { "site_alias": "production", "credentials": ".secret/…/wp-sites.json", "seo_plugin": "yoast|aioseo" },
+  "azure":      { "credentials": ".secret/ms_azure_credentials.json", "containers": { "images": "ci-images", "public": "ci-public" } },
+  "sharepoint": { "token_cache": ".secret/msgraph_token_cache.json" },
+  "marketing":  { "sharepoint_site": "…", "brand_doc": "…", "playbook_doc": "…", "flowtone_connector": "flowtone-catice", "canva": { … } },
+  "accounting": { /* reserved — e.g. odoo_url, odoo_db, sharepoint_site; define when accounting-core is built */ }
+}
+```
+
+Paths are relative to the company project root. Scripts find the file by walking up from the current directory, so **run them from inside the company project**.
+
+## Install in a company project
+
+```bash
+claude plugin marketplace add bhurivaj/ai-team-plugins          # private: needs git access (gh auth setup-git)
+claude plugin install platform-core@ai-team-plugins  --scope project
+claude plugin install marketing-core@ai-team-plugins --scope project
+ln -sfn ~/.claude/plugins/marketplaces/ai-team-plugins/plugins/platform-core/scripts .claude/scripts
+```
+
+Workflows that a project uses are symlinked per file into its `.claude/workflows/` the same way (target `…/plugins/<plugin>/workflows/<file>.js`).
+
+## Changing something
+
+1. Edit here, run `python3 -m unittest discover -s tests` and `bash tests/secret_scan.sh`.
+2. Agents/skills changed → bump that plugin's `version` in `plugins/<name>/.claude-plugin/plugin.json`.
+3. Commit and push. CI runs the tests and the secret scan.
+4. In each company project: `claude plugin marketplace update ai-team-plugins && claude plugin update <plugin>@ai-team-plugins --scope project`, then start a new session. Agents and skills load from a versioned cache copy; scripts and workflows are symlinked to the marketplace clone, so they change as soon as the marketplace is updated.
+
+Never commit `company.json`, `.secret/`, or anything credential-shaped — `.gitignore` and CI both block it. See `docs/team-deployment.md` for rolling this out to teammates.

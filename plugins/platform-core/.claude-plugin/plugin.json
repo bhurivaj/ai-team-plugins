@@ -1,0 +1,5 @@
+{
+  "name": "platform-core",
+  "version": "1.0.0",
+  "description": "Shared infrastructure for every department plugin: company.json loader, Azure Blob / SharePoint / WordPress scripts, the asset-upload, msgraph and wordpress-woocommerce skills, and the model-selection criteria."
+}
