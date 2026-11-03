@@ -40,7 +40,7 @@ main() {
         exit 1
     fi
 
-    chmod +x "${binary_path}"
+    [ -x "${binary_path}" ] || chmod +x "${binary_path}"  # read-only installs (e.g. root-owned in a container) ship it executable
     exec "${binary_path}" "$@"
 }
 
