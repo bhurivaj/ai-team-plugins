@@ -194,8 +194,11 @@ def make_app(env: dict) -> web.Application:
                 await broadcast([me.level])
         return ws
 
+    async def healthz(_request):
+        return web.json_response({"status": "ok"})
+
     app = web.Application()
-    app.add_routes([web.get("/", index), web.get("/login", login), web.get("/auth/callback", callback),
+    app.add_routes([web.get("/healthz", healthz), web.get("/", index), web.get("/login", login), web.get("/auth/callback", callback),
                     web.get("/logout", logout), web.get("/ws", ws_handler)])
     if (HERE / "static").is_dir():
         app.router.add_static("/static", HERE / "static")

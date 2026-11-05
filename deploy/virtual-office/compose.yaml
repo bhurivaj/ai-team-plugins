@@ -1,0 +1,17 @@
+services:
+  office:
+    build:
+      context: ../..
+      dockerfile: deploy/virtual-office/Dockerfile
+    restart: unless-stopped
+    env_file: .env                     # chmod 600; never committed
+    ports:
+      - "127.0.0.1:8080:8080"          # reachable only through nginx on this host
+    volumes:
+      - ./data:/app/data:ro            # maps/catalog; edit, then `docker compose restart office` (validated at startup)
+      - office-data:/data              # office.db (access grants, audit log)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 30s
+volumes:
+  office-data:

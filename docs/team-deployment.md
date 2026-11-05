@@ -69,6 +69,8 @@ Recommended order: Phase 1 for the people who run the work now. Pick a Phase 2 f
 
 ### Decided 2026-11-02: Teams bot, self-hosted
 
+> **Replaced 2026-11-05:** the Teams bot is replaced by the virtual office. See `docs/superpowers/specs/2026-11-05-virtual-office-design.md` and `deploy/virtual-office/README.md`. `deploy/teams-bot/` stays; later milestones reuse its agent code.
+
 - **Channel:** Microsoft Teams. The company is internal-only on Microsoft 365.
 - **Hosting:** the company's own Ubuntu server, not Azure. Requests flow Teams → Cloudflare (proxied DNS) → existing nginx → the bot container (Docker Compose).
 
