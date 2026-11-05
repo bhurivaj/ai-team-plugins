@@ -4,7 +4,7 @@ from collections import deque
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "deploy" / "virtual-office"))
-from office import catalog, mapdata  # noqa: E402
+from office import access, catalog, mapdata  # noqa: E402
 
 DATA = ROOT / "deploy" / "virtual-office" / "data"
 _tmp = []  # keep TemporaryDirectory objects alive until process exit
@@ -133,6 +133,60 @@ class CatalogMapTests(unittest.TestCase):
         door = next(o for o in lob.objects if o.type == "door")
         self.assertTrue(inside(reachable(lob, lob.spawn)))
         self.assertFalse(inside(reachable(lob, lob.spawn, extra_blocked={(door.x, door.y)})))
+
+
+class AccessTests(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.path = os.path.join(tmp.name, "o.db")
+        self.a = access.AccessStore(self.path, admins={"boss"})
+
+    def test_floor_needs_grant_lobby_open_security_admin_only(self):
+        self.assertTrue(self.a.can_enter("u1", "lobby"))
+        self.assertTrue(self.a.can_enter("u1", None))
+        self.assertTrue(self.a.can_enter("u1", "room:meeting"))
+        self.assertFalse(self.a.can_enter("u1", "floor:catice"))
+        self.assertFalse(self.a.can_enter("u1", "security"))
+        self.assertTrue(self.a.can_enter("boss", "security"))
+        self.assertTrue(self.a.can_enter("boss", "floor:catice"))
+        self.a.set_grant("boss", "u1", "floor:catice", True)
+        self.assertTrue(self.a.can_enter("u1", "floor:catice"))
+        self.assertFalse(self.a.can_enter("u1", "floor:classmat"))
+        self.a.set_grant("boss", "u1", "floor:catice", False)
+        self.assertFalse(self.a.can_enter("u1", "floor:catice"))
+
+    def test_non_admin_cannot_grant(self):
+        with self.assertRaises(PermissionError):
+            self.a.set_grant("u1", "u1", "floor:catice", True)
+        self.assertFalse(self.a.can_enter("u1", "floor:catice"))
+        row = self.a.audit()[0]
+        self.assertEqual((row["actor"], row["ok"]), ("u1", False))
+
+    def test_only_floor_areas_can_be_granted_and_refusal_is_audited(self):
+        with self.assertRaises(ValueError):
+            self.a.set_grant("boss", "u1", "security", True)
+        self.assertEqual(self.a.grants(), {})
+        self.assertFalse(self.a.audit()[0]["ok"])
+
+    def test_audit_newest_first_with_fields_and_limit(self):
+        self.a.set_grant("boss", "u1", "floor:catice", True)
+        self.a.set_grant("boss", "u1", "floor:catice", False)
+        rows = self.a.audit()
+        self.assertEqual([r["allowed"] for r in rows], [False, True])
+        self.assertEqual(set(rows[0]), {"ts", "actor", "user", "area", "allowed", "ok"})
+        self.assertEqual(rows[0]["user"], "u1")
+        self.assertEqual(len(self.a.audit(limit=1)), 1)
+
+    def test_users_remembered_and_renamed(self):
+        self.a.remember_user("u1", "Ann")
+        self.a.remember_user("u1", "Anna")
+        self.assertEqual(self.a.users(), [("u1", "Anna")])
+
+    def test_grants_survive_reopen(self):
+        self.a.set_grant("boss", "u2", "floor:classmat", True)
+        again = access.AccessStore(self.path, admins={"boss"})
+        self.assertEqual(again.grants(), {"u2": {"floor:classmat"}})
 
 
 if __name__ == "__main__":
