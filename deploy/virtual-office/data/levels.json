@@ -1,0 +1,16 @@
+{
+  "levels": {
+    "lobby": {
+      "name": "ล็อบบี้",
+      "map": "maps/lobby.json"
+    },
+    "floor:catice": {
+      "name": "ชั้น Catice",
+      "map": "maps/floor.json"
+    },
+    "floor:classmat": {
+      "name": "ชั้น Classmat",
+      "map": "maps/floor.json"
+    }
+  }
+}
