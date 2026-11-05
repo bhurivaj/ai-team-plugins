@@ -28,9 +28,10 @@ Gather.town is the reference for the genre: a top-down, walkable 2D room. The ar
 9. **Phases.** Phase 1 is marketing only. Phase 2 adds project work as separate office rooms, one per project.
 10. **One floor per company.** The building has a Catice floor and a Classmat floor, and each floor will later be split into rooms by type of work. In Phase 1 each floor is one open-plan space with no rooms yet. The floor you stand on decides which company a job is for. (Owner, 2026-11-05.)
 11. **Access is managed inside the office, in a security room.** Rights show up as doors: the door to a floor or department opens for people who are allowed and stays shut for everyone else. If someone without the right is inside, for example because their right was just removed, they are pushed out of the room at once. Someone allowed on both companies' floors can walk into either one straight away. (Owner, 2026-11-05.)
-12. **Three containers for the agents:** one per floor, plus an executor (see "How it fits together"). (Owner agreed, 2026-11-05.)
-13. **Everything runs on Docker** on the company server.
-14. Anything else is to be tuned later with the owner.
+12. **Service keys are entered in the security room too**, per floor: the GA4 service account, WordPress passwords, Flowtone tokens and SAS tokens. (Owner, 2026-11-05.)
+13. **Three containers for the agents:** one per floor, plus an executor (see "How it fits together"). (Owner agreed, 2026-11-05.)
+14. **Everything runs on Docker** on the company server.
+15. Anything else is to be tuned later with the owner.
 
 ## Goals
 
@@ -151,6 +152,23 @@ Executor container
   - a job already running finishes, but its result is held until access returns
 - **Granting access takes effect at once.** The door opens without logging in again.
 - Every change in the security room is logged, with who changed what and when.
+
+### Service keys
+
+The security room is also where admins enter each floor's service keys (decision 12). That makes key storage the most sensitive part of the system, so *(all my calls)*:
+
+- **Separate secrets store.** A small dedicated secrets container holds the keys, not the office server.
+  - The office server can **write** keys into it but can never read them back.
+  - Each agent container can read only its own floor's read-only keys.
+  - The executor can read the write keys.
+  - Each caller has its own token.
+  - Taking over the office server lets someone overwrite keys, but not read them.
+- **Write-only in the UI.** A key field accepts a typed value or an uploaded file, such as a service-account JSON. Afterwards it shows only "set on <date> by <name>", never the value. Changing a key means replacing it.
+- **Every key is labelled with its floor and its kind (read or write).** The kind decides which container receives it, so a write key can never reach an agent container.
+- **Encrypted at rest.** The encryption key is a root-only file on the host, outside the database and outside any backup of the data volume.
+- **A fresh Entra sign-in with MFA** is required before the security room accepts a change.
+- **"Test" button per key.** The receiving container tries the key, for example with a GA4 metadata call, and reports OK or the error. The value is not echoed back.
+- **Migration.** Today's keys live in each company's `.secret/` folder on the owner's Mac. The owner enters them once through the security room, and they are never copied as files to the server.
 - **Phase 1 has two floors and no rooms.** Doors sit at the floor entrances: the lift or stairs from the lobby. Department rooms and their doors come in Phase 2.
 
 ## Phase 1 milestones (suggested order)
@@ -160,7 +178,7 @@ Executor container
    - The people's characters walk with live presence, and the agents sit idle.
    - The security room works, with doors enforced by the server.
    - No Claude yet.
-2. **One agent end to end.** research-analyst runs in its own container with the GA4 MCP server and read-only credentials, plus conversation, queue, "!", result card and the spend wall. This proves the owner's first scenario.
+2. **Service keys in the security room** (secrets store, write-only fields, test button). Then **one agent end to end.** research-analyst runs in its own container with the GA4 MCP server and read-only credentials, plus conversation, queue, "!", result card and the spend wall. This proves the owner's first scenario.
 3. **The read-mostly roles:**
    - content-strategist
    - seo-specialist
