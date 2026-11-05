@@ -164,6 +164,24 @@ The owner's layout is mocked up in `.superpowers/brainstorm/` (`building-map.htm
 - marketing-manager exists today as a skill.
 - hr-manager and the HR assistant are new agents that have to be written.
 
+### Everything in a room is a reusable object
+
+Every fitting is an **object** defined once in a catalog and placed by data. This covers desks, chairs, doors, flap gates, the lift, bookshelves, boards, the spend screen, the meeting table and plants. The owner wants this so that Claude, and later the HR assistant, can pick objects up and reuse them to build or change rooms without touching code. (Owner, 2026-11-05.)
+
+- **Object type** (catalog entry): id, sprite or sprites, footprint in tiles, whether it blocks walking, and an optional **behaviour** with its parameters. Examples:
+  - `door`: guards an area; its parameter is the area id, and the access check runs on the server
+  - `flap-gate`: the login gate
+  - `desk`: a seat for one agent
+  - `bookshelf`: opens the library for the floor
+  - `board`: shows a calendar feed
+  - `screen`: shows spend
+  - `meeting-table`: starts a meeting
+- **Map** (data, not code): the building's floors and rooms, as geometry plus a list of object instances. Each instance gives a type, a position and parameters, such as which agent sits at a desk or which calendar a board shows.
+- **The two company floors share one floor template.** Phase 2 project rooms are built from the same catalog.
+- **Behaviours are a fixed list implemented in code**, and anything that touches access or money is checked on the server. Placing a door object never grants access; the security room does. Adding a new *kind* of behaviour is a code change; adding, moving or re-parameterising objects is a data change.
+- **Map and catalog changes are versioned** (git) and loaded without a rebuild.
+- The file format is left to the builder. A Tiled-compatible JSON (object layers) is a good fit, because the owner could then also edit maps in a visual editor. *(My call.)*
+
 ## Meetings
 
 - **A person calls a meeting** in the meeting room and gives the brief, for example "next month's campaign".
