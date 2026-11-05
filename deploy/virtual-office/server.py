@@ -149,7 +149,7 @@ def make_app(env: dict) -> web.Application:
                     moved = world.enforce()
                     for uid in moved:
                         await send(uid, {"t": "evicted", "reason": "ไม่มีสิทธิ์เข้าชั้นนี้แล้ว"})
-                    await broadcast([before] + [world.players[u].level for u in moved] + [lv for lv in levels])
+                    await broadcast(list(levels))  # every level: an evicted user may have left meanwhile
                     await admin_state(user_id)
             else:
                 await send(user_id, {"t": "error", "msg": "unknown message"})
@@ -160,6 +160,8 @@ def make_app(env: dict) -> web.Application:
         s = who(request)
         if not s:
             raise web.HTTPUnauthorized()
+        if request.headers.get("Origin") != env["public_url"]:  # blocks cross-site WS hijacking
+            raise web.HTTPForbidden()
         uid = s["oid"]
         ws = web.WebSocketResponse(heartbeat=30)
         await ws.prepare(request)
@@ -167,15 +169,18 @@ def make_app(env: dict) -> web.Application:
             access.remember_user(uid, s["name"])
             old = world.players.get(uid)
             old_level = old.level if old else None
-            _, replaced = world.join(uid, s["name"])
+            me, _ = world.join(uid, s["name"])
         except Exception:
             await ws.send_json({"t": "error", "msg": "unavailable"})
             await ws.close()
             return ws
-        if replaced and uid in socks:
-            await send(uid, {"t": "replaced"})
-            await socks[uid].close()
-        socks[uid], auth_time[uid] = ws, s["auth_time"]
+        old_ws, socks[uid], auth_time[uid] = socks.get(uid), ws, s["auth_time"]  # swap before any await
+        if old_ws is not None:
+            try:
+                await old_ws.send_json({"t": "replaced"})
+                await old_ws.close()
+            except Exception:
+                pass
         await send(uid, {"t": "hello", "you": uid, "level": "lobby", "levels": {k: v.name for k, v in levels.items()}})
         await broadcast(["lobby"] + ([old_level] if old_level else []))
         try:
@@ -183,12 +188,10 @@ def make_app(env: dict) -> web.Application:
                 if msg.type == WSMsgType.TEXT:
                     await handle_message(uid, msg.data)
         finally:
-            if socks.get(uid) is ws:  # a replaced socket must not evict its successor
+            if socks.get(uid) is ws and world.players.get(uid) is me:  # a replaced socket must not evict its successor
                 del socks[uid]
-                lvl = world.players[uid].level if uid in world.players else None
                 world.leave(uid)
-                if lvl:
-                    await broadcast([lvl])
+                await broadcast([me.level])
         return ws
 
     app = web.Application()
