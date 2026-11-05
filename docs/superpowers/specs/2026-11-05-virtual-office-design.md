@@ -26,7 +26,7 @@ Gather.town is the reference for the genre: a top-down, walkable 2D room. The ar
 7. **Idle agents sit still** and spend no tokens. Movement and animation are purely client-side. Claude is called only when someone gives an agent work.
 8. **A screen on the office wall shows token spend.**
 9. **Phases.** Phase 1 is marketing only. Phase 2 adds project work as separate office rooms, one per project.
-10. **One floor per company.** The building has a Catice floor and a Classmat floor, and each floor will later be split into rooms by type of work. In Phase 1 each floor is one open-plan space with no rooms yet. The floor you stand on decides which company a job is for. (Owner, 2026-11-05.)
+10. **One floor per company.** The building has a Catice floor and a Classmat floor, and each floor will later be split into rooms by type of work. The floor you stand on decides which company a job is for. (Owner, 2026-11-05.) The floors now have rooms from the start; see "Building map", which replaces the earlier "open-plan in Phase 1".
 11. **Access is managed inside the office, in a security room.** Rights show up as doors: the door to a floor or department opens for people who are allowed and stays shut for everyone else. If someone without the right is inside, for example because their right was just removed, they are pushed out of the room at once. Someone allowed on both companies' floors can walk into either one straight away. (Owner, 2026-11-05.)
 12. **Service keys are entered in the security room too**, per floor: the GA4 service account, WordPress passwords, Flowtone tokens and SAS tokens. (Owner, 2026-11-05.)
 13. **Three containers for the agents:** one per floor, plus an executor (see "How it fits together"). (Owner agreed, 2026-11-05.)
@@ -44,8 +44,8 @@ Gather.town is the reference for the genre: a top-down, walkable 2D room. The ar
 - Project rooms (Phase 2).
 - Voice or video between people. Gather has this; this office does not need it.
 - People chatting with each other inside the office. They already have Teams.
-- Agents talking to each other on their own, or the office running work on a schedule.
-- Editing context, skills or tools from the office. That was the separate "admin UI" idea and stays separate.
+- Agents starting work on their own, or the office running work on a schedule. The one hand-off between agents is a manager delegating to their own team after a meeting a person called (see "Meetings").
+- Editing the text of context, skills or tools from the office. The library only switches existing skills on or off per agent (see "Building map").
 
 ## Anti-goals (a failure even if it works)
 
@@ -141,6 +141,39 @@ Executor container
 
 *(All my calls.)*
 
+## Building map
+
+The owner's layout is mocked up in `.superpowers/brainstorm/` (`building-map.html`). Both companies' floors use the same plan.
+
+**Ground floor (lobby):**
+- **Flap gates at the entrance.** Signing in with Microsoft 365 opens the gate. Anyone not in `AI-Office-Users` stops there.
+- **Security office**, for admins only: people's access and service keys (see below).
+- **Lift and stairs to the floors.** Each floor's door opens only for people with access to it.
+
+**Each company floor:**
+- **Director office:** the owner's desk. The approval queue lives here. *(My call.)*
+- **Meeting room:** a person calls all of the floor's managers to a meeting (see "Meetings").
+- **Library:** the skills available to this floor. Assigning or removing a skill for an agent is an admin action. It only switches skills that already exist; it does not edit them. *(Guess.)*
+- **Document room:** which SharePoint sites the floor's agents may reach. This is an admin action, and the site credentials are service keys in the security office. *(Guess.)*
+- **Boards:** calendars, such as the Flowtone content calendar and Outlook. Read-only. The spend wall hangs next to them. *(Guess.)*
+- **Marketing office:** marketing-manager (a manager) and desks for the six marketing agents.
+- **HR:** hr-manager (a manager) and one assistant agent that helps manage the office's agents. It only drafts changes, such as a new agent or a changed role, and the owner approves them, because changing an agent changes what the system may do. *(Guess.)*
+- **Common area** for the people.
+
+**What already exists:**
+- marketing-manager exists today as a skill.
+- hr-manager and the HR assistant are new agents that have to be written.
+
+## Meetings
+
+- **A person calls a meeting** in the meeting room and gives the brief, for example "next month's campaign".
+- **All of the floor's managers take part.** In Phase 1 these are marketing-manager and hr-manager. They discuss in turns and consult each other.
+- **The output is a framework:** an agreed direction, plus action items for each manager to take back and run or hand to their team.
+- **The person who called the meeting sees the framework and approves it before anything is handed out.** *(My call: a meeting can fan out into many runs, so it costs real money.)*
+- **On approval, each manager delegates its items to its own team's agents as queued jobs.** This is the only case where an agent gives work to another agent.
+- **The meeting has its own budget cap.** The meeting and its follow-up jobs show up as one line on the spend wall. *(My call.)*
+- Other people see the meeting room occupied. The content is private to the person who called it, like a conversation.
+
 ## Security room and doors
 
 - **The security room** is a room in the office. Only admins can enter it; in Phase 1 that is the owner. It shows people × floors (and later rooms), and toggling a cell grants or removes access.
@@ -173,6 +206,8 @@ The security room is also where admins enter each floor's service keys (decision
 
 ## Phase 1 milestones (suggested order)
 
+The rooms arrive across the milestones. The building and every room are drawn from milestone 1; rooms that do nothing yet show as closed.
+
 1. **Office shell.**
    - Entra login, the lobby and two floors.
    - The people's characters walk with live presence, and the agents sit idle.
@@ -183,7 +218,10 @@ The security room is also where admins enter each floor's service keys (decision
    - content-strategist
    - seo-specialist
    - content-writer, drafting text without Flowtone writes
-4. **Approval flow,** then the roles that write outside: content-writer's Flowtone writes, designer (Canva), publisher.
+4. **Library and document room**, as admin actions.
+5. **Approval flow,** then the roles that write outside: content-writer's Flowtone writes, designer (Canva), publisher.
+
+6. **Meeting room and manager delegation**, including writing hr-manager. The HR assistant comes after that.
 
 ## Left to the builder
 
