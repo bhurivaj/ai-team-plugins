@@ -157,7 +157,7 @@ The owner's layout is mocked up in `.superpowers/brainstorm/` (`building-map.htm
 - **Document room:** which SharePoint sites the floor's agents may reach. This is an admin action, and the site credentials are service keys in the security office. *(Guess.)*
 - **Boards:** calendars, such as the Flowtone content calendar and Outlook. Read-only. The spend wall hangs next to them. *(Guess.)*
 - **Marketing office:** marketing-manager (a manager) and desks for the six marketing agents.
-- **HR:** hr-manager (a manager) and one assistant agent that helps manage the office's agents. It only drafts changes, such as a new agent or a changed role, and the owner approves them, because changing an agent changes what the system may do. *(Guess.)*
+- **HR:** hr-manager (a manager) and one assistant agent that helps manage the office's agents. See "HR: creating, changing and retiring agents".
 - **Common area** for the people.
 
 **What already exists:**
@@ -181,6 +181,20 @@ Every fitting is an **object** defined once in a catalog and placed by data. Thi
 - **Behaviours are a fixed list implemented in code**, and anything that touches access or money is checked on the server. Placing a door object never grants access; the security room does. Adding a new *kind* of behaviour is a code change; adding, moving or re-parameterising objects is a data change.
 - **Map and catalog changes are versioned** (git) and loaded without a rebuild.
 - The file format is left to the builder. A Tiled-compatible JSON (object layers) is a good fit, because the owner could then also edit maps in a visual editor. *(My call.)*
+
+## HR: creating, changing and retiring agents
+
+**Owner's rule (2026-11-05):** every new, changed or removed agent character goes through the HR department in the office. You talk to hr-manager (or the HR assistant) like any other NPC; there is no other path for it.
+
+- **What HR handles:**
+  - Hire a new agent: role and class, outfit (paper-doll parts), name, which floor and desk, skills from the library, and tools.
+  - Change an existing agent: outfit, name, desk, skills or tools.
+  - Retire an agent.
+- **HR only drafts.** The HR agent writes the change as a proposal, with a preview of the character and a plain list of what it may do. The proposal goes to the approval queue at the director's desk, like any other action with outside effects, and nothing changes until an admin approves it. *(My call: changing an agent changes what the system may do.)*
+- **Retiring archives instead of deleting.** The agent leaves the floor and its desk frees up, but its past conversations, results and spend stay readable, and HR can bring it back. Deleting it for good is a separate admin action in the security office. *(My call.)*
+- **Changes are versioned.** Agent definitions are files in git, like the map and catalog. An approved change is a commit, so it can be reverted.
+- **Hard limits stay in code.** HR can only pick tools from a fixed allowlist per role. It cannot grant a tool that is not on that list, such as Bash or write access outside the approval flow.
+- **People's own avatars are not HR's job.** Each person picks their own look. *(Guess.)*
 
 ## Meetings
 
