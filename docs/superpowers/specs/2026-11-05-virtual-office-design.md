@@ -213,7 +213,7 @@ The rooms arrive across the milestones. The building and every room are drawn fr
    - The people's characters walk with live presence, and the agents sit idle.
    - The security room works, with doors enforced by the server.
    - No Claude yet.
-2. **Service keys in the security room** (secrets store, write-only fields, test button). Then **one agent end to end.** research-analyst runs in its own container with the GA4 MCP server and read-only credentials, plus conversation, queue, "!", result card and the spend wall. This proves the owner's first scenario.
+2. **Service keys in the security room** (secrets store, write-only fields, test button). Then **one agent end to end.** research-analyst runs in the Catice floor container with the GA4 MCP server and read-only credentials, plus conversation, queue, "!", result card and the spend wall. This proves the owner's first scenario.
 3. **The read-mostly roles:**
    - content-strategist
    - seo-specialist
