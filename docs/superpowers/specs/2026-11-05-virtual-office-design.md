@@ -27,8 +27,10 @@ Gather.town is the reference for the genre: a top-down, walkable 2D room. The ar
 8. **A screen on the office wall shows token spend.**
 9. **Phases.** Phase 1 is marketing only. Phase 2 adds project work as separate office rooms, one per project.
 10. **One floor per company.** The building has a Catice floor and a Classmat floor, and each floor will later be split into rooms by type of work. In Phase 1 each floor is one open-plan space with no rooms yet. The floor you stand on decides which company a job is for. (Owner, 2026-11-05.)
-11. **Everything runs on Docker** on the company server.
-12. Anything else is to be tuned later with the owner.
+11. **Access is managed inside the office, in a security room.** Rights show up as doors: the door to a floor or department opens for people who are allowed and stays shut for everyone else. If someone without the right is inside, for example because their right was just removed, they are pushed out of the room at once. Someone allowed on both companies' floors can walk into either one straight away. (Owner, 2026-11-05.)
+12. **Three containers for the agents:** one per floor, plus an executor (see "How it fits together"). (Owner agreed, 2026-11-05.)
+13. **Everything runs on Docker** on the company server.
+14. Anything else is to be tuned later with the owner.
 
 ## Goals
 
@@ -66,7 +68,7 @@ These were decided on 2026-11-02 and still hold:
 New constraints:
 
 - **Login uses Entra ID (OIDC)**, single tenant. There are no local passwords. *(My call.)*
-- **Access is per floor.** Each floor has its own Entra security group, e.g. `AI-Catice-Users` and `AI-Classmat-Users`. To "create a user", the owner adds them to the right group or groups. You can only enter, give work on, and see spend for the floors you belong to. *(My call: the safe default. The owner can merge the groups if everyone should see both.)*
+- **Entra decides who you are, and the office decides where you may go.** Anyone in one Entra group (`AI-Office-Users`) can log in and lands in the lobby. Which floors and rooms they may enter is set in the security room (decision 11), not in Entra.
 - **The office is a public web page**, so it sits behind Cloudflare Access as well as the app's own Entra login. nginx must pass WebSocket upgrades.
 
 ## How it fits together
@@ -81,13 +83,16 @@ Office server container
    ├─ job queue per agent (FIFO)
    └─ spend ledger (usage.jsonl or a small DB)
         │  one job at a time per agent
-Agent containers, one per role per floor (catice-research-analyst, classmat-publisher, …)
+Agent containers, one per floor (agents-catice, agents-classmat)
    ├─ Claude Agent SDK + ai-team-plugins (baked in)
-   ├─ only that role's tools and MCP servers
-   └─ only that role's credentials
+   ├─ per-run tool allowlist and MCP servers for the role
+   └─ that company's read-only credentials
+Executor container
+   └─ write credentials per company; runs approved actions only
 ```
 
-- **One container per agent role per floor:** 6 roles × 2 companies = 12 containers in Phase 1. Each mounts only its own company folder and holds only that company's credentials, such as a SAS token for that company's containers. *(My call, matching the owner's "each agent runs on Docker".)* The reason is least privilege: research-analyst holds read-only GA4/Search Console/Meta credentials, publisher holds the WordPress and posting credentials, and neither sees the other's. All roles share one image and differ by env file and tool allowlist.
+- **One agent container per floor (company)**, running all six roles. It mounts only its own company folder and holds only that company's **read-only** credentials, such as GA4 viewer and Search Console. Roles differ by tool allowlist and MCP config per run.
+- **One executor container** holds the credentials that write: WordPress, Flowtone writes, posting and storage SAS tokens, per company. It runs only actions a person has approved, and never calls Claude. Since agents only propose writes, no agent container ever holds a write credential.
 - **The office server never calls Claude itself.** It keeps state and dispatches jobs.
 - **Reuse from the Teams bot:**
   - `agent_options`: tool allowlist, `dontAsk`, budget cap, strict MCP config
@@ -135,9 +140,26 @@ Agent containers, one per role per floor (catice-research-analyst, classmat-publ
 
 *(All my calls.)*
 
+## Security room and doors
+
+- **The security room** is a room in the office. Only admins can enter it; in Phase 1 that is the owner. It shows people × floors (and later rooms), and toggling a cell grants or removes access.
+- **Doors are enforced by the server, not drawn.** The office server holds the access list and checks it on every move into a floor or room, every message to an agent, every result and every spend view. A browser that draws its own way through a door still gets refused.
+- **Removing access takes effect at once:**
+  - the person's character is moved out to the lobby
+  - their open chat on that floor closes
+  - their queued jobs there are cancelled
+  - a job already running finishes, but its result is held until access returns
+- **Granting access takes effect at once.** The door opens without logging in again.
+- Every change in the security room is logged, with who changed what and when.
+- **Phase 1 has two floors and no rooms.** Doors sit at the floor entrances: the lift or stairs from the lobby. Department rooms and their doors come in Phase 2.
+
 ## Phase 1 milestones (suggested order)
 
-1. **Office shell.** Entra login, a room, the people's characters walking with live presence, and the six agents sitting idle. No Claude yet.
+1. **Office shell.**
+   - Entra login, the lobby and two floors.
+   - The people's characters walk with live presence, and the agents sit idle.
+   - The security room works, with doors enforced by the server.
+   - No Claude yet.
 2. **One agent end to end.** research-analyst runs in its own container with the GA4 MCP server and read-only credentials, plus conversation, queue, "!", result card and the spend wall. This proves the owner's first scenario.
 3. **The read-mostly roles:**
    - content-strategist
