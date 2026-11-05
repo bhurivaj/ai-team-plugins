@@ -106,7 +106,8 @@ Executor container
 ## Behaviour details
 
 **Agent states, shown above the agent's head:**
-- *idle*: sitting still
+- *idle*: sitting completely still, with no animation and no tokens spent
+- *working*: while a job runs, the agent visibly works. Every class types, its monitor scrolls, and it bobs slightly; some classes also have their own motion, such as the designer's brush moving on the easel or the scholar turning book pages. The motion stops the moment the job ends. (Owner, 2026-11-05.)
 - *talking*: speech-bubble icon
 - *done*: "!", shown only to the person whose job finished. Everyone else sees idle or talking.
 - *queue*: a small count of waiting people
@@ -134,7 +135,7 @@ Executor container
 
 **Actions with outside effects** (publish, schedule, Flowtone writes, Canva edits):
 - The agent never holds the real write tools. Instead it calls a "propose action" tool that records the exact call (tool name and arguments) plus a one-line reason, and the run ends.
-- A person with publish rights sees the proposed action and the reason in an approval list on the office wall. They do not see the conversation it came from, so conversations stay private.
+- A person with publish rights sees the proposed action and the reason as a folder on the director's desk (see "Approvals: folders on the director's desk"). They do not see the conversation it came from, so conversations stay private.
 - On approval, the role container executes that exact recorded call. This is not a new LLM run, so it costs nothing and cannot drift from what was approved. On rejection, the requester is told.
 - While an action waits for approval, the agent is free for the next person in its queue.
 - In Phase 1 only the owner has publish rights.
@@ -151,7 +152,7 @@ The owner's layout is mocked up in `.superpowers/brainstorm/` (`building-map.htm
 - **Lift and stairs to the floors.** Each floor's door opens only for people with access to it.
 
 **Each company floor:**
-- **Director office:** the owner's desk. The approval queue lives here. *(My call.)*
+- **Director office:** the owner's desk, where approvals wait as folders (see below).
 - **Meeting room:** a person calls all of the floor's managers to a meeting (see "Meetings").
 - **Library:** the skills available to this floor. Assigning or removing a skill for an agent is an admin action. It only switches skills that already exist; it does not edit them. *(Guess.)*
 - **Document room:** which SharePoint sites the floor's agents may reach. This is an admin action, and the site credentials are service keys in the security office. *(Guess.)*
@@ -181,6 +182,28 @@ Every fitting is an **object** defined once in a catalog and placed by data. Thi
 - **Behaviours are a fixed list implemented in code**, and anything that touches access or money is checked on the server. Placing a door object never grants access; the security room does. Adding a new *kind* of behaviour is a code change; adding, moving or re-parameterising objects is a data change.
 - **Map and catalog changes are versioned** (git) and loaded without a rebuild.
 - The file format is left to the builder. A Tiled-compatible JSON (object layers) is a good fit, because the owner could then also edit maps in a visual editor. *(My call.)*
+
+## Approvals: folders on the director's desk
+
+**Owner's rule (2026-11-05):**
+- Anything waiting for approval appears as a **folder on the director's desk**, with an alert icon above the desk.
+- You approve by walking to the desk and reading the folders. There is no approval list on a wall or in a menu.
+- When everything is cleared, the folders and the alert disappear.
+
+Details:
+- Each pending item is one folder, stacked on the desk, so the stack's height shows how much is waiting.
+- The folder colour shows who it came from:
+  - HR, for changes to agents
+  - publisher and content-writer, for outside writes
+  - managers, for meeting frameworks
+- Use the desk (E or click) to open the top folder. It shows:
+  - the proposed action, in plain words
+  - the reason
+  - who asked for it and when
+  - the exact call that will run
+- **Approve** or **Return** sits at the bottom of the folder. Returning asks for a one-line reason, which goes back to the requester.
+- Opening the folders still needs a fresh sign-in, as for the security room. The desk works only for people with approval rights; for everyone else the folders are visible but closed. *(My call.)*
+- While an approval is waiting, the alert icon also appears over the director-office door and on the minimap, so it shows from anywhere on the floor. *(My call.)*
 
 ## HR: creating, changing and retiring agents
 
