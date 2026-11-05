@@ -4,7 +4,7 @@ from collections import deque
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "deploy" / "virtual-office"))
-from office import access, catalog, mapdata  # noqa: E402
+from office import access, catalog, mapdata, world  # noqa: E402
 
 DATA = ROOT / "deploy" / "virtual-office" / "data"
 _tmp = []  # keep TemporaryDirectory objects alive until process exit
@@ -47,6 +47,47 @@ def reachable(lv, start, extra_blocked=()):
                 seen.add(n)
                 q.append(n)
     return seen
+
+
+def _walk(w, uid, goal):
+    """BFS over Level.blocked to a tile satisfying goal(x, y), then replay through World.move only."""
+    p = w.players[uid]
+    lv = w.levels[p.level]
+    prev, q = {(p.x, p.y): None}, deque([(p.x, p.y)])
+    end = None
+    while q:
+        c = q.popleft()
+        if goal(*c):
+            end = c
+            break
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            n = (c[0] + dx, c[1] + dy)
+            if n not in prev and not lv.blocked(*n):
+                prev[n] = c
+                q.append(n)
+    assert end, "no path"
+    steps = []
+    while prev[end]:
+        steps.append((end[0] - prev[end][0], end[1] - prev[end][1]))
+        end = prev[end]
+    for dx, dy in reversed(steps):
+        if not w.move(uid, dx, dy):
+            return False
+    return True
+
+
+def walk_to_lift(w, uid):
+    lv = w.levels[w.players[uid].level]
+    lifts = [(o, lv.types[o.type]) for o in lv.objects if lv.types[o.type].behaviour == "lift"]
+    return _walk(w, uid, lambda x, y: any(o.x - 1 <= x <= o.x + t.w and o.y - 1 <= y <= o.y + t.h for o, t in lifts))
+
+
+def walk_into_area(w, uid, area):
+    """Try to walk into `area`; True only if the player ends up inside it."""
+    lv = w.levels[w.players[uid].level]
+    _walk(w, uid, lambda x, y: lv.area_at(x, y) == area)
+    p = w.players[uid]
+    return lv.area_at(p.x, p.y) == area
 
 
 class CatalogMapTests(unittest.TestCase):
@@ -187,6 +228,58 @@ class AccessTests(unittest.TestCase):
         self.a.set_grant("boss", "u2", "floor:classmat", True)
         again = access.AccessStore(self.path, admins={"boss"})
         self.assertEqual(again.grants(), {"u2": {"floor:classmat"}})
+
+
+class WorldTests(unittest.TestCase):
+    def setUp(self):
+        self.types = catalog.load(DATA / "catalog.json")
+        self.levels = mapdata.load_levels(DATA, self.types)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.acc = access.AccessStore(os.path.join(tmp.name, "o.db"), admins={"boss"})
+        self.w = world.World(self.levels, self.acc)
+
+    def test_join_always_spawns_in_lobby(self):
+        p, _ = self.w.join("u1", "U1")
+        self.assertEqual((p.level, (p.x, p.y)), ("lobby", self.levels["lobby"].spawn))
+
+    def test_move_rejects_jumps_walls_and_doors(self):
+        p, _ = self.w.join("u1", "U1")
+        start = (p.x, p.y)
+        self.assertFalse(self.w.move("u1", 2, 0))
+        self.assertFalse(self.w.move("u1", 1, 1))
+        self.assertFalse(self.w.move("u1", "1", 0))
+        self.assertFalse(self.w.move("u1", True, 0))
+        self.assertFalse(self.w.move("nobody", 1, 0))
+        self.assertEqual((p.x, p.y), start)
+        # walk to the security door: a non-admin is stopped at it
+        self.assertFalse(walk_into_area(self.w, "u1", "security"))
+
+    def test_admin_passes_security_door(self):
+        self.w.join("boss", "Boss")
+        self.assertTrue(walk_into_area(self.w, "boss", "security"))
+
+    def test_lift_needs_grant_then_eviction_on_revoke(self):
+        self.w.join("u1", "U1")
+        walk_to_lift(self.w, "u1")
+        self.assertFalse(self.w.ride("u1", "floor:catice"))
+        self.acc.set_grant("boss", "u1", "floor:catice", True)
+        self.assertTrue(self.w.ride("u1", "floor:catice"))
+        self.acc.set_grant("boss", "u1", "floor:catice", False)
+        self.assertEqual(self.w.enforce(), ["u1"])
+        self.assertEqual(self.w.players["u1"].level, "lobby")
+
+    def test_ride_needs_lift_nearby(self):
+        self.w.join("boss", "Boss")
+        self.assertFalse(self.w.ride("boss", "floor:catice"))
+
+    def test_rejoin_replaces_not_duplicates(self):
+        self.w.join("u1", "U1")
+        _, replaced = self.w.join("u1", "U1")
+        self.assertTrue(replaced)
+        self.assertEqual(len(self.w.players_on("lobby")), 1)
+        self.w.leave("u1")
+        self.assertEqual(self.w.players_on("lobby"), [])
 
 
 if __name__ == "__main__":
