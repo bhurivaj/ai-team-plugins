@@ -1,0 +1,159 @@
+# Virtual office for the AI marketing team — design
+
+Status: draft for the owner's approval, 2026-11-05. Replaces the Teams bot (`deploy/teams-bot/`, `docs/team-deployment.md` → "Decided 2026-11-02: Teams bot").
+
+## Intent
+
+The owner wants one place where people can see what each AI agent is doing and hand it work. Today the agents exist only inside a Claude Code session: `marketing-manager` spins them up as subagents and they vanish when the run ends. Nobody else on the team can use them, and nobody can see who is busy.
+
+The answer is a web page drawn as a pixel-art office. Each AI agent is a character at a desk. Each person on the team logs in as their own character, walks up to an agent, and talks to it. The room shows at a glance which agents are working, who is waiting for whom, and how much the team is spending.
+
+Gather.town is the reference for the genre: a top-down, walkable 2D room. The art, layout and code must be original.
+
+## Who uses it
+
+- Phase 1: the owner and the people they add, working on marketing for the two companies, Catice and Classmat.
+- People join with their company Microsoft 365 account (see Constraints).
+
+## What the owner decided
+
+1. **No Teams bot.** The virtual office is the only way to use the agents. The Teams bot is retired before it ever ran.
+2. **Several people share one office.** Each person is a character, and everyone can walk up to and talk to any agent. The agents are shared.
+3. **Agents are the characters.** In Phase 1 these are the six marketing roles in `plugins/marketing-core/agents/`: research-analyst, content-strategist, content-writer, designer, seo-specialist, publisher.
+4. **Talking to an agent.** Walk up to the agent and type to it. The conversation is private: other people see a speech-bubble icon over the agent's head, meaning "talking with someone", but never the content.
+5. **Busy agents queue.** If the agent is already busy with another person, the newcomer joins a queue. The room shows that people are waiting (for example a count over the agent).
+6. **Fire and forget.** After giving the work, the person can walk away. When the work is done, a "!" appears over the agent. Clicking the agent, or walking back to it, opens the result: a short summary first, with the full output behind it. (Owner picked mockup B on 2026-11-05.)
+7. **Idle agents sit still** and spend no tokens. Movement and animation are purely client-side. Claude is called only when someone gives an agent work.
+8. **A screen on the office wall shows token spend.**
+9. **Phases.** Phase 1 is marketing only. Phase 2 adds project work as separate office rooms, one per project.
+10. **One floor per company.** The building has a Catice floor and a Classmat floor, and each floor will later be split into rooms by type of work. In Phase 1 each floor is one open-plan space with no rooms yet. The floor you stand on decides which company a job is for. (Owner, 2026-11-05.)
+11. **Everything runs on Docker** on the company server.
+12. Anything else is to be tuned later with the owner.
+
+## Goals
+
+- From the office alone, the owner can ask research-analyst for this month's GA4 numbers and get them, without opening Claude Code.
+- Anyone in the office can tell in under a second which agents are free, busy or done, and how many people are waiting.
+- Spend is visible all the time, and capped.
+
+## Non-goals (Phase 1)
+
+- Project rooms (Phase 2).
+- Voice or video between people. Gather has this; this office does not need it.
+- People chatting with each other inside the office. They already have Teams.
+- Agents talking to each other on their own, or the office running work on a schedule.
+- Editing context, skills or tools from the office. That was the separate "admin UI" idea and stays separate.
+
+## Anti-goals (a failure even if it works)
+
+- Someone can read another person's conversation with an agent.
+- An agent publishes, posts or changes anything outside the system without a person approving it first.
+- Idle offices cost money: polling Claude, keeping sessions warm, or "ambient" agent chatter.
+- Credentials are shared widely, for example every agent container holding every key.
+- The art or layout copies Gather.town.
+
+## Constraints carried over from the Teams bot decisions
+
+These were decided on 2026-11-02 and still hold:
+
+- **Hosting:** the company Ubuntu server, Docker Compose, behind the existing nginx and Cloudflare proxied DNS. Not Azure. Ports bind to `127.0.0.1` only.
+- **Claude:** the Claude Agent SDK with an API key from a dedicated Anthropic Console workspace that has a monthly spend limit. Subscription logins are not allowed for this use. The default model is `claude-sonnet-5-5`; per-role models follow each agent's `model:` frontmatter and `plugins/platform-core/docs/model-selection.md`.
+- **Plugins are baked into the image** and pinned by rebuild, not pulled from `main` at runtime (decided 2026-11-02).
+- **Company folders** are mounted read-only without `.secret/` or `medias/`.
+- **Per-request budget cap** (`max_budget_usd`) and `permission_mode="dontAsk"` with an explicit tool allowlist per role.
+- **Secrets** never go in git or the image. Azure storage is shared by both companies, so use SAS tokens scoped per company, never the account key.
+
+New constraints:
+
+- **Login uses Entra ID (OIDC)**, single tenant. There are no local passwords. *(My call.)*
+- **Access is per floor.** Each floor has its own Entra security group, e.g. `AI-Catice-Users` and `AI-Classmat-Users`. To "create a user", the owner adds them to the right group or groups. You can only enter, give work on, and see spend for the floors you belong to. *(My call: the safe default. The owner can merge the groups if everyone should see both.)*
+- **The office is a public web page**, so it sits behind Cloudflare Access as well as the app's own Entra login. nginx must pass WebSocket upgrades.
+
+## How it fits together
+
+```text
+Browser (pixel office, canvas; one floor per company)
+   │  HTTPS + WebSocket (Cloudflare Access → nginx)
+Office server container
+   ├─ Entra login, session cookie
+   ├─ room state: who is where, agent status, queues   ──► broadcast to everyone in the room
+   ├─ conversations: per (person, agent), private
+   ├─ job queue per agent (FIFO)
+   └─ spend ledger (usage.jsonl or a small DB)
+        │  one job at a time per agent
+Agent containers, one per role per floor (catice-research-analyst, classmat-publisher, …)
+   ├─ Claude Agent SDK + ai-team-plugins (baked in)
+   ├─ only that role's tools and MCP servers
+   └─ only that role's credentials
+```
+
+- **One container per agent role per floor:** 6 roles × 2 companies = 12 containers in Phase 1. Each mounts only its own company folder and holds only that company's credentials, such as a SAS token for that company's containers. *(My call, matching the owner's "each agent runs on Docker".)* The reason is least privilege: research-analyst holds read-only GA4/Search Console/Meta credentials, publisher holds the WordPress and posting credentials, and neither sees the other's. All roles share one image and differ by env file and tool allowlist.
+- **The office server never calls Claude itself.** It keeps state and dispatches jobs.
+- **Reuse from the Teams bot:**
+  - `agent_options`: tool allowlist, `dontAsk`, budget cap, strict MCP config
+  - per-run cost logging from `ResultMessage`, including the `ResultError` handling
+  - `SessionStore`
+  - the writable-`/data` Dockerfile fix
+
+  The Teams adapter code goes.
+
+## Behaviour details
+
+**Agent states, shown above the agent's head:**
+- *idle*: sitting still
+- *talking*: speech-bubble icon
+- *done*: "!", shown only to the person whose job finished. Everyone else sees idle or talking.
+- *queue*: a small count of waiting people
+
+**Conversations:**
+- Each (person, agent) pair keeps its own Claude session, so a follow-up resumes context.
+- Only that person can read it.
+- The office keeps the conversation history so the person can reopen past results.
+
+**The queue:**
+- Each agent runs one job at a time.
+- A message to a busy agent becomes a queued job. The person sees their position and can leave.
+- The queue is first-in, first-out.
+
+**Results:**
+- When a job finishes, the person gets the "!".
+- Clicking shows a summary card first: the agent's final answer, trimmed. The full output sits behind it.
+- In Phase 1, results are text (Markdown) plus links, such as Canva export URLs. Uploading attachments and downloading files come later. *(My call.)*
+- **Handing work between agents:** a result card has a "send to…" button that queues a new job for another agent, with the result attached as context. Agents never hand off to each other on their own. *(My call.)*
+
+**Spend wall:**
+- This month's spend against the monthly cap, broken down by agent and by person.
+- Spend shows in USD from `total_cost_usd`. Token counts are secondary.
+- The office enforces its own monthly cap, set below the Anthropic Console limit. At the cap it refuses new jobs with a clear message, and the Console limit stays as a backstop. Per-person caps can come later. *(My call.)*
+
+**Actions with outside effects** (publish, schedule, Flowtone writes, Canva edits):
+- The agent never holds the real write tools. Instead it calls a "propose action" tool that records the exact call (tool name and arguments) plus a one-line reason, and the run ends.
+- A person with publish rights sees the proposed action and the reason in an approval list on the office wall. They do not see the conversation it came from, so conversations stay private.
+- On approval, the role container executes that exact recorded call. This is not a new LLM run, so it costs nothing and cannot drift from what was approved. On rejection, the requester is told.
+- While an action waits for approval, the agent is free for the next person in its queue.
+- In Phase 1 only the owner has publish rights.
+
+*(All my calls.)*
+
+## Phase 1 milestones (suggested order)
+
+1. **Office shell.** Entra login, a room, the people's characters walking with live presence, and the six agents sitting idle. No Claude yet.
+2. **One agent end to end.** research-analyst runs in its own container with the GA4 MCP server and read-only credentials, plus conversation, queue, "!", result card and the spend wall. This proves the owner's first scenario.
+3. **The read-mostly roles:**
+   - content-strategist
+   - seo-specialist
+   - content-writer, drafting text without Flowtone writes
+4. **Approval flow,** then the roles that write outside: content-writer's Flowtone writes, designer (Canva), publisher.
+
+## Left to the builder
+
+- The frontend stack and rendering, e.g. a canvas game library vs plain canvas, and the tile and sprite pipeline. The pixel art must be original.
+- The backend framework. Python is suggested, to reuse the Agent SDK code.
+- How the office server talks to agent containers: an HTTP job API, a queue such as Redis, or similar.
+- Storage for conversations, queues and spend. SQLite on a volume is likely enough.
+- Room layout, character movement, how "walk up to" is detected, and the chat panel design.
+- How each MCP server is packaged per role. The company `.mcp.json` today mixes stdio servers (uvx/npx) with OAuth-based HTTP servers (Canva, Meta Ads), and the OAuth ones need a headless auth story.
+
+## Open questions
+
+None blocking. The builder check (2026-11-05) raised six; the owner answered the company question with floors, and the rest are marked *(My call)* above.

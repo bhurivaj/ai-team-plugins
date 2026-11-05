@@ -10,3 +10,6 @@ client.json
 # deploy secrets and company data mounted into the bot
 .env
 deploy/teams-bot/companies/
+
+# brainstorming mockups (local only)
+.superpowers/
