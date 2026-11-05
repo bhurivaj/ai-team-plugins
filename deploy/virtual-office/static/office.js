@@ -168,7 +168,7 @@ function onMessage(m) {
   if (m.t === "hello") { me = m.you; level = m.level; levelNames = m.levels; players = []; retry = 2000; }
   else if (m.t === "moved") { level = m.level; clearTimeout(rideTimer); players = []; secArea = false; }
   else if (m.t === "players") { if (m.level !== level) return; players = m.players; }
-  else if (m.t === "evicted") toast(m.reason);
+  else if (m.t === "evicted") { toast(m.reason); level = "lobby"; players = []; secArea = false; $("security").hidden = true; } // server always evicts to the lobby, sends no "moved"
   else if (m.t === "replaced") { stopped = true; toast("เปิดออฟฟิศในแท็บอื่นแล้ว"); }
   else if (m.t === "admin_state") showAdmin(m);
   else if (m.t === "reauth") showReauth();
