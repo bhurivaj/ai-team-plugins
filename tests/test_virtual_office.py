@@ -210,6 +210,11 @@ class AccessTests(unittest.TestCase):
         self.assertEqual(self.a.grants(), {})
         self.assertFalse(self.a.audit()[0]["ok"])
 
+    def test_refuse_audits_odd_input(self):
+        self.a.refuse("u1", ["x"], None, "yes")
+        self.assertEqual(self.a.audit()[0], {**self.a.audit()[0], "actor": "u1", "ok": False, "allowed": False})
+        self.assertEqual(self.a.grants(), {})
+
     def test_audit_newest_first_with_fields_and_limit(self):
         self.a.set_grant("boss", "u1", "floor:catice", True)
         self.a.set_grant("boss", "u1", "floor:catice", False)
@@ -252,6 +257,13 @@ class WorldTests(unittest.TestCase):
         self.assertFalse(self.w.move("u1", True, 0))
         self.assertFalse(self.w.move("nobody", 1, 0))
         self.assertEqual((p.x, p.y), start)
+        lv = self.levels["lobby"]  # a wall tile next to a walkable one must be refused
+        wall = next((x, y, dx, dy) for x in range(lv.width) for y in range(lv.height) if not lv.blocked(x, y)
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if lv.blocked(x + dx, y + dy))
+        p.x, p.y = wall[:2]
+        self.assertFalse(self.w.move("u1", wall[2], wall[3]))
+        self.assertEqual((p.x, p.y), wall[:2])
+        p.x, p.y = start
         # walk to the security door: a non-admin is stopped at it
         self.assertFalse(walk_into_area(self.w, "u1", "security"))
 

@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 const cv = $("game"), ctx = cv.getContext("2d");
 let catalog, levelsSpec, maps = {}, levelNames = {};
 let me = null, level = null, players = [], retry = 2000, stopped = false, ws = null;
-let secArea = false, rideTimer = null, toastTimer = null;
+let secArea = false, toastTimer = null;
 const sprites = {}, chars = {};
 
 function sprite(name) { // catalog pixels -> cached canvas; "." or unknown palette char is transparent
@@ -38,9 +38,9 @@ function character(id, seated) { // colour derived from the id; seated shows hea
   return (chars[key] = c);
 }
 
-function toast(msg) {
+function toast(msg, sticky) {
   const el = $("toast"); el.textContent = msg; el.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 4000);
+  clearTimeout(toastTimer); if (!sticky) toastTimer = setTimeout(() => (el.hidden = true), 4000);
 }
 
 // Map reading mirrors office/mapdata.py: objects x/y are pixel top-left; areas in pixels.
@@ -85,7 +85,7 @@ function draw() {
     const t = catalog[o.type], cx = (o.x + t.w / 2) * T * s;
     if (o.props.agent) { // seated and still: the idle state
       ctx.drawImage(character(o.props.agent, true), (o.x + t.w / 2 - 0.5) * T * s, (o.y - 0.5) * T * s, T * s, T * s);
-      label("agent: " + o.props.agent, cx, (o.y + t.h) * T * s, s);
+      label(o.props.agent, cx, (o.y + t.h) * T * s, s);
     }
     if (o.type === "sign" && o.props.text) label(o.props.text, cx, (o.y + 1) * T * s, s);
   });
@@ -121,9 +121,7 @@ function refresh() { // lift buttons and security overlay follow where I stand
 }
 
 function ride(to) {
-  send({ t: "ride", to });
-  clearTimeout(rideTimer); // the server answers a refused ride with silence; success sends "moved"
-  rideTimer = setTimeout(() => toast("ไม่มีสิทธิ์เข้าชั้นนี้"), 1500);
+  send({ t: "ride", to }); // success sends "moved", refusal sends "refused"
 }
 
 function name(id, users) { const u = users.find((x) => x[0] === id); return u ? u[1] : id; }
@@ -166,10 +164,11 @@ function showReauth() {
 
 function onMessage(m) {
   if (m.t === "hello") { me = m.you; level = m.level; levelNames = m.levels; players = []; retry = 2000; }
-  else if (m.t === "moved") { level = m.level; clearTimeout(rideTimer); players = []; secArea = false; }
+  else if (m.t === "moved") { level = m.level; players = []; secArea = false; }
   else if (m.t === "players") { if (m.level !== level) return; players = m.players; }
   else if (m.t === "evicted") { toast(m.reason); level = "lobby"; players = []; secArea = false; $("security").hidden = true; } // server always evicts to the lobby, sends no "moved"
-  else if (m.t === "replaced") { stopped = true; toast("เปิดออฟฟิศในแท็บอื่นแล้ว"); }
+  else if (m.t === "replaced") { stopped = true; toast("เปิดออฟฟิศในแท็บอื่นแล้ว", true); }
+  else if (m.t === "refused") toast(m.msg);
   else if (m.t === "admin_state") showAdmin(m);
   else if (m.t === "reauth") showReauth();
   draw(); refresh();
@@ -183,8 +182,11 @@ function connect() {
   ws.onclose = () => {
     if (stopped) return;
     toast("ขาดการเชื่อมต่อ กำลังเชื่อมต่อใหม่");
-    setTimeout(connect, retry);
-    retry = Math.min(retry * 2, 30000);
+    fetch("/", { redirect: "manual" }).then((r) => { // an expired session redirects to /login
+      if (r.type === "opaqueredirect") { location.assign("/login"); return; }
+      setTimeout(connect, retry);
+      retry = Math.min(retry * 2, 30000);
+    }).catch(() => { setTimeout(connect, retry); retry = Math.min(retry * 2, 30000); });
   };
 }
 

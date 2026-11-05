@@ -57,6 +57,11 @@ class AccessStore:
         if err:
             raise err
 
+    def refuse(self, actor_id, user_id, area_id, allowed) -> None:
+        """Audit a grant attempt rejected before set_grant (bad input, wrong place, stale sign-in)."""
+        with self._db() as db:
+            db.execute("INSERT INTO audit VALUES(?,?,?,?,?,0)", (time.time(), str(actor_id), str(user_id), str(area_id), int(allowed is True)))
+
     def grants(self) -> dict[str, set[str]]:
         out: dict[str, set[str]] = {}
         with self._db() as db:

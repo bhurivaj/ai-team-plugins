@@ -97,8 +97,11 @@ def make_app(env: dict) -> web.Application:
         data = session.verify(tok, secret, time.time()) if tok else None
         if not data:
             raise web.HTTPFound("/login")
-        result = await asyncio.get_running_loop().run_in_executor(
-            None, lambda: msal_client().acquire_token_by_auth_code_flow(data["flow"], dict(request.query)))
+        try:
+            result = await asyncio.get_running_loop().run_in_executor(
+                None, lambda: msal_client().acquire_token_by_auth_code_flow(data["flow"], dict(request.query)))
+        except ValueError:  # state mismatch
+            raise web.HTTPFound("/login")
         claims = result.get("id_token_claims")
         if "error" in result or not claims:
             return web.Response(status=400, text="sign-in failed")
@@ -136,16 +139,27 @@ def make_app(env: dict) -> web.Application:
                 if world.ride(user_id, m.get("to")):
                     await send(user_id, {"t": "moved", "level": p.level})
                     await broadcast([before, p.level])
-            elif t in ("admin_state", "grant"):
-                fresh = time.time() - auth_time.get(user_id, 0) <= session.FRESH_AUTH_S
-                if not (access.is_admin(user_id) and levels[p.level].area_at(p.x, p.y) == "security"):
-                    await send(user_id, {"t": "error", "msg": "not allowed"})
-                elif not fresh:
-                    await send(user_id, {"t": "reauth"})
-                elif t == "admin_state":
-                    await admin_state(user_id)
                 else:
-                    access.set_grant(user_id, m["user"], m["area"], bool(m["allowed"]))
+                    await send(user_id, {"t": "refused", "msg": "ไม่มีสิทธิ์เข้าชั้นนี้"})
+            elif t in ("admin_state", "grant"):
+                in_sec = access.is_admin(user_id) and levels[p.level].area_at(p.x, p.y) == "security"
+                if t == "admin_state":
+                    if in_sec:
+                        await admin_state(user_id)
+                    else:
+                        await send(user_id, {"t": "error", "msg": "not allowed"})
+                    return
+                target, area, allowed = m.get("user"), m.get("area"), m.get("allowed")
+                valid = (isinstance(target, str) and isinstance(area, str) and area in levels
+                         and area.startswith("floor:") and isinstance(allowed, bool))
+                if not valid or not in_sec:
+                    access.refuse(user_id, target, area, allowed)  # every attempt is audited
+                    await send(user_id, {"t": "error", "msg": "not allowed" if valid else "invalid grant"})
+                elif time.time() - auth_time.get(user_id, 0) > session.FRESH_AUTH_S:
+                    access.refuse(user_id, target, area, allowed)
+                    await send(user_id, {"t": "reauth"})
+                else:
+                    access.set_grant(user_id, target, area, allowed)
                     moved = world.enforce()
                     for uid in moved:
                         await send(uid, {"t": "evicted", "reason": "ไม่มีสิทธิ์เข้าชั้นนี้แล้ว"})
