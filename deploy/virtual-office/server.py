@@ -142,7 +142,7 @@ def make_app(env: dict) -> web.Application:
                 else:
                     await send(user_id, {"t": "refused", "msg": "ไม่มีสิทธิ์เข้าชั้นนี้"})
             elif t in ("admin_state", "grant"):
-                in_sec = access.is_admin(user_id) and levels[p.level].area_at(p.x, p.y) == "security"
+                in_sec = access.is_admin(user_id) and world.near(user_id, "security-console") is not None  # menus open from objects
                 if t == "admin_state":
                     if in_sec:
                         await admin_state(user_id)

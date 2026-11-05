@@ -281,6 +281,28 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(self.w.enforce(), ["u1"])
         self.assertEqual(self.w.players["u1"].level, "lobby")
 
+    def test_ride_arrives_next_to_the_lift(self):
+        self.w.join("u1", "U1")
+        self.acc.set_grant("boss", "u1", "floor:catice", True)
+        self.assertTrue(walk_to_lift(self.w, "u1"))
+        self.assertTrue(self.w.ride("u1", "floor:catice"))
+        self.assertIsNotNone(self.w.near("u1", "lift"))
+        self.assertTrue(self.w.ride("u1", "lobby"))
+        p = self.w.players["u1"]
+        self.assertEqual(p.level, "lobby")
+        self.assertIsNotNone(self.w.near("u1", "lift"))  # back at the lift, not at the entrance gates
+        self.assertNotEqual((p.x, p.y), self.levels["lobby"].spawn)
+
+    def test_near_finds_the_object_being_touched(self):
+        self.w.join("boss", "Boss")
+        self.assertIsNone(self.w.near("boss", "security-console"))
+        lv = self.levels["lobby"]
+        console = next(o for o in lv.objects if o.type == "security-console")
+        t = lv.types[console.type]
+        self.assertTrue(_walk(self.w, "boss", lambda x, y: console.x - 1 <= x <= console.x + t.w and console.y - 1 <= y <= console.y + t.h))
+        self.assertIs(self.w.near("boss", "security-console"), console)
+        self.assertIsNone(self.w.near("nobody", "lift"))
+
     def test_ride_needs_lift_nearby(self):
         self.w.join("boss", "Boss")
         self.assertFalse(self.w.ride("boss", "floor:catice"))

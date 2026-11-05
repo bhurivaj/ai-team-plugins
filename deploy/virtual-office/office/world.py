@@ -51,19 +51,41 @@ class World:
         p.x, p.y = x, y
         return True
 
-    def ride(self, user_id, to_level):
+    def near(self, user_id, behaviour):
+        """The object with this behaviour the player touches (its footprint plus one tile), else None."""
         p = self.players.get(user_id)
-        if p is None or to_level not in self.levels or not self.access.can_enter(user_id, to_level):
-            return False
+        if p is None:
+            return None
         lv = self.levels[p.level]
         for o in lv.objects:
             t = lv.types[o.type]
-            if (t.behaviour == "lift" and to_level in str(o.props.get("to", "")).split(",")
-                    and o.x - 1 <= p.x <= o.x + t.w and o.y - 1 <= p.y <= o.y + t.h):
-                p.level = to_level
-                p.x, p.y = self.levels[to_level].spawn
-                return True
-        return False
+            if t.behaviour == behaviour and o.x - 1 <= p.x <= o.x + t.w and o.y - 1 <= p.y <= o.y + t.h:
+                return o
+        return None
+
+    def _arrival(self, user_id, level_id):
+        """A free tile next to the target level's lift, so a ride lands at the lift; the spawn if none."""
+        lv = self.levels[level_id]
+        for o in lv.objects:
+            t = lv.types[o.type]
+            if t.behaviour != "lift":
+                continue
+            ring = ([(x, o.y + t.h) for x in range(o.x, o.x + t.w)] + [(o.x - 1, y) for y in range(o.y, o.y + t.h)]
+                    + [(o.x + t.w, y) for y in range(o.y, o.y + t.h)] + [(x, o.y - 1) for x in range(o.x, o.x + t.w)])
+            for x, y in ring:
+                if not lv.blocked(x, y) and self._may_stand(user_id, lv, x, y):
+                    return x, y
+        return lv.spawn
+
+    def ride(self, user_id, to_level):
+        lift = self.near(user_id, "lift")
+        if (lift is None or to_level not in self.levels or not self.access.can_enter(user_id, to_level)
+                or to_level not in str(lift.props.get("to", "")).split(",")):
+            return False
+        p = self.players[user_id]
+        p.level = to_level
+        p.x, p.y = self._arrival(user_id, to_level)
+        return True
 
     def enforce(self):
         out = []

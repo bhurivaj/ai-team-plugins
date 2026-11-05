@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 const cv = $("game"), ctx = cv.getContext("2d");
 let catalog, levelsSpec, maps = {}, levelNames = {};
 let me = null, level = null, players = [], retry = 2000, stopped = false, ws = null;
-let secArea = false, toastTimer = null;
+let opened = null, toastTimer = null; // opened: the object whose panel is showing
 const sprites = {}, chars = {};
 
 function sprite(name) { // catalog pixels -> cached canvas; "." or unknown palette char is transparent
@@ -43,7 +43,7 @@ function toast(msg, sticky) {
   clearTimeout(toastTimer); if (!sticky) toastTimer = setTimeout(() => (el.hidden = true), 4000);
 }
 
-// Map reading mirrors office/mapdata.py: objects x/y are pixel top-left; areas in pixels.
+// Map reading mirrors office/mapdata.py: objects x/y are pixel top-left.
 function layer(m, name) { return m.layers.find((l) => l.name === name); }
 function objs(m) {
   return layer(m, "objects").objects.map((o) => {
@@ -51,10 +51,6 @@ function objs(m) {
     (o.properties || []).forEach((p) => (props[p.name] = p.value));
     return { type: o.type || o.class, x: Math.floor(o.x / T), y: Math.floor(o.y / T), props };
   });
-}
-function areaAt(m, x, y) {
-  const a = layer(m, "areas").objects.find((a) => a.x / T <= x && x < (a.x + a.width) / T && a.y / T <= y && y < (a.y + a.height) / T);
-  return a ? a.name : null;
 }
 
 function scaleFor(m) {
@@ -95,29 +91,44 @@ function draw() {
   });
 }
 
-function nearLift() { // same reach as World.ride: footprint plus one tile
+// Objects you can use: behaviour -> what the hint calls it. Menus open only by using an object (E or click).
+const USABLE = { "lift": "ลิฟต์", "security-console": "คอนโซลความปลอดภัย", "desk": "โต๊ะ", "meeting-table": "โต๊ะประชุม",
+  "bookshelf": "ชั้นหนังสือ skill", "filing-cabinet": "ตู้เอกสาร", "board": "บอร์ดปฏิทิน", "screen": "จอค่าใช้จ่าย" };
+function touches(o, p) { const t = catalog[o.type]; return o.x - 1 <= p.x && p.x <= o.x + t.w && o.y - 1 <= p.y && p.y <= o.y + t.h; }
+function touching() { // same reach as World.near on the server
   const m = maps[level], p = players.find((q) => q.id === me);
   if (!m || !p) return null;
-  return objs(m).find((o) => o.type === "lift" && o.x - 1 <= p.x && p.x <= o.x + catalog.lift.w && o.y - 1 <= p.y && p.y <= o.y + catalog.lift.h) || null;
+  const list = objs(m).filter((o) => USABLE[catalog[o.type].behaviour] && touches(o, p));
+  return list.find((o) => catalog[o.type].behaviour === "lift" || catalog[o.type].behaviour === "security-console") || list[0] || null;
+}
+function same(a, b) { return a && b && a.type === b.type && a.x === b.x && a.y === b.y; }
+function nameOf(o) { return o.props.agent || USABLE[catalog[o.type].behaviour]; }
+
+function closePanels() { opened = null; $("lift").hidden = true; $("security").hidden = true; }
+
+function use(o) {
+  const b = catalog[o.type].behaviour;
+  if (b === "lift") {
+    opened = o;
+    const box = $("lift"); box.replaceChildren();
+    const lbl = document.createElement("span"); lbl.textContent = "ไปชั้น:"; box.append(lbl);
+    String(o.props.to).split(",").forEach((to) => {
+      const btn = document.createElement("button");
+      btn.textContent = levelNames[to] || to;
+      btn.onclick = () => ride(to);
+      box.append(btn);
+    });
+    box.hidden = false; box.querySelector("button")?.focus();
+  } else if (b === "security-console") { opened = o; send({ t: "admin_state" }); }
+  else toast(`${nameOf(o)}: เร็วๆ นี้`);
 }
 
-function refresh() { // lift buttons and security overlay follow where I stand
-  const lift = nearLift(), box = $("lift");
-  box.replaceChildren();
-  box.hidden = !lift;
-  if (lift) {
-    const lbl = document.createElement("span"); lbl.textContent = "ไปชั้น:"; box.append(lbl);
-    String(lift.props.to).split(",").forEach((to) => {
-      const b = document.createElement("button");
-      b.textContent = levelNames[to] || to;
-      b.onclick = () => ride(to);
-      box.append(b);
-    });
-  }
-  const p = players.find((q) => q.id === me), inSec = !!p && areaAt(maps[level], p.x, p.y) === "security";
-  if (inSec && !secArea) send({ t: "admin_state" }); // non-admins get a silent "not allowed"
-  if (!inSec) $("security").hidden = true;
-  secArea = inSec;
+function refresh() { // the hint follows what I touch; a panel closes when I walk away from its object
+  const o = touching(), hint = $("hint");
+  hint.hidden = !o;
+  if (o) hint.textContent = `กด E เพื่อใช้ ${nameOf(o)}`;
+  const p = players.find((q) => q.id === me);
+  if (opened && (!p || !touches(opened, p))) closePanels();
 }
 
 function ride(to) {
@@ -164,12 +175,12 @@ function showReauth() {
 
 function onMessage(m) {
   if (m.t === "hello") { me = m.you; level = m.level; levelNames = m.levels; players = []; retry = 2000; }
-  else if (m.t === "moved") { level = m.level; players = []; secArea = false; }
+  else if (m.t === "moved") { level = m.level; players = []; closePanels(); }
   else if (m.t === "players") { if (m.level !== level) return; players = m.players; }
-  else if (m.t === "evicted") { toast(m.reason); level = "lobby"; players = []; secArea = false; $("security").hidden = true; } // server always evicts to the lobby, sends no "moved"
+  else if (m.t === "evicted") { toast(m.reason); level = "lobby"; players = []; closePanels(); } // server always evicts to the lobby, sends no "moved"
   else if (m.t === "replaced") { stopped = true; toast("เปิดออฟฟิศในแท็บอื่นแล้ว", true); }
   else if (m.t === "refused") toast(m.msg);
-  else if (m.t === "admin_state") showAdmin(m);
+  else if (m.t === "admin_state") { if (opened) showAdmin(m); }
   else if (m.t === "reauth") showReauth();
   draw(); refresh();
 }
@@ -190,14 +201,26 @@ function connect() {
   };
 }
 
-const KEYS = { ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0] };
+// e.code is the physical key, so WASD and E work on a Thai keyboard layout too
+const KEYS = { ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] };
 addEventListener("keydown", (e) => {
-  const d = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+  if (e.key === "Escape") { closePanels(); return; }
+  if (e.code === "KeyE" && !e.ctrlKey && !e.metaKey && !e.altKey && !/^INPUT$/.test(e.target.tagName)) {
+    const o = touching(); if (o) { e.preventDefault(); use(o); } return;
+  }
+  const d = KEYS[e.code];
   if (!d || e.ctrlKey || e.metaKey || e.altKey || /^INPUT$/.test(e.target.tagName)) return;
   e.preventDefault();
   send({ t: "move", dx: d[0], dy: d[1] });
 });
 addEventListener("resize", draw);
+cv.addEventListener("click", (e) => { // clicking an object I touch uses it, like pressing E
+  const m = maps[level], p = players.find((q) => q.id === me);
+  if (!m || !p) return;
+  const r = cv.getBoundingClientRect(), tx = Math.floor((e.clientX - r.left) / (r.width / m.width)), ty = Math.floor((e.clientY - r.top) / (r.height / m.height));
+  const o = objs(m).find((q) => USABLE[catalog[q.type].behaviour] && q.x <= tx && tx < q.x + catalog[q.type].w && q.y <= ty && ty < q.y + catalog[q.type].h);
+  if (o && touches(o, p)) use(o);
+});
 
 (async () => {
   const get = (u) => fetch("/mapdata/" + u).then((r) => r.json());
