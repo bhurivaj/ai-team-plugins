@@ -4,7 +4,7 @@ from collections import deque
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "deploy" / "virtual-office"))
-from office import access, catalog, mapdata, world  # noqa: E402
+from office import access, catalog, mapdata, session, world  # noqa: E402
 
 DATA = ROOT / "deploy" / "virtual-office" / "data"
 _tmp = []  # keep TemporaryDirectory objects alive until process exit
@@ -280,6 +280,25 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(len(self.w.players_on("lobby")), 1)
         self.w.leave("u1")
         self.assertEqual(self.w.players_on("lobby"), [])
+
+
+class SessionTests(unittest.TestCase):
+    def test_verify_rejects_tamper_expiry_and_wrong_secret(self):
+        t = session.sign({"oid": "u1"}, b"k", ttl_s=60, now=1000)
+        self.assertEqual(session.verify(t, b"k", now=1010)["oid"], "u1")
+        self.assertIsNone(session.verify(t, b"k", now=1061))
+        self.assertIsNone(session.verify(t, b"other", now=1010))
+        body, mac = t.split(".")
+        self.assertIsNone(session.verify(body[:-2] + "xx." + mac, b"k", now=1010))
+        for junk in ["", "a", "a.b.c", "....", None]:
+            self.assertIsNone(session.verify(junk, b"k", now=1010))
+
+    def test_verify_rejects_non_dict_and_missing_exp(self):
+        import base64, hashlib, hmac
+        for obj in ([1], {"oid": "u1"}, {"exp": "x"}):
+            body = base64.urlsafe_b64encode(json.dumps(obj).encode()).rstrip(b"=")
+            mac = base64.urlsafe_b64encode(hmac.new(b"k", body, hashlib.sha256).digest()).rstrip(b"=")
+            self.assertIsNone(session.verify((body + b"." + mac).decode(), b"k", now=1))
 
 
 if __name__ == "__main__":
